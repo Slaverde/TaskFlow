@@ -27,6 +27,16 @@ export interface Settings {
   currentSort: 'manual' | 'priority' | 'date' | 'created'
 }
 
+export interface CalendarEvent {
+  id: string
+  title: string
+  date: string        // 'YYYY-MM-DD'
+  startTime: string   // 'HH:MM'
+  endTime: string     // 'HH:MM'
+  color: string       // tailwind color key: 'indigo' | 'emerald' | 'amber' | 'rose' | 'sky'
+  description?: string
+}
+
 export type View = 'hoy' | 'proximos' | 'todas' | 'calendario' | 'completadas'
 export type Filter = 'activas' | 'alta' | 'con-fecha' | null
 export type SortOrder = 'manual' | 'priority' | 'date' | 'created'

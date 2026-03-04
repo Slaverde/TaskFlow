@@ -5,7 +5,7 @@ import {
   setDoc, getDoc, writeBatch, query, orderBy,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { Task, Category, Settings } from '@/types'
+import { Task, Category, Settings, CalendarEvent } from '@/types'
 
 const DEFAULT_CATEGORIES: Category[] = [
   { id: 'universidad', name: 'Universidad', color: 'blue'    },
@@ -14,16 +14,19 @@ const DEFAULT_CATEGORIES: Category[] = [
 ]
 
 export function useTaskFlow(user: User) {
-  const [tasks,      setTasks]      = useState<Task[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [settings,   setSettings]   = useState<Settings>({ darkMode: true, currentSort: 'manual' })
-  const [loading,    setLoading]    = useState(true)
+  const [tasks,          setTasks]          = useState<Task[]>([])
+  const [categories,     setCategories]     = useState<Category[]>([])
+  const [settings,       setSettings]       = useState<Settings>({ darkMode: true, currentSort: 'manual' })
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
+  const [loading,        setLoading]        = useState(true)
 
   // ─── Path helpers ─────────────────────────────────────────────────────────
-  const tasksCol    = () => collection(db, 'users', user.uid, 'tasks')
-  const catsCol     = () => collection(db, 'users', user.uid, 'categories')
-  const settingsDoc = () => doc(db, 'users', user.uid, 'settings', 'app')
-  const taskDoc     = (id: string) => doc(db, 'users', user.uid, 'tasks', id)
+  const tasksCol      = () => collection(db, 'users', user.uid, 'tasks')
+  const catsCol       = () => collection(db, 'users', user.uid, 'categories')
+  const settingsDoc   = () => doc(db, 'users', user.uid, 'settings', 'app')
+  const taskDoc       = (id: string) => doc(db, 'users', user.uid, 'tasks', id)
+  const eventsCol     = () => collection(db, 'users', user.uid, 'calendarEvents')
+  const eventDoc      = (id: string) => doc(db, 'users', user.uid, 'calendarEvents', id)
 
   // ─── Load data ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -31,10 +34,11 @@ export function useTaskFlow(user: User) {
     async function load() {
       setLoading(true)
       try {
-        const [taskSnap, catSnap, settingSnap] = await Promise.all([
+        const [taskSnap, catSnap, settingSnap, eventSnap] = await Promise.all([
           getDocs(query(tasksCol(), orderBy('order'))),
           getDocs(catsCol()),
           getDoc(settingsDoc()),
+          getDocs(eventsCol()),
         ])
 
         if (cancelled) return
@@ -58,9 +62,12 @@ export function useTaskFlow(user: User) {
           await setDoc(settingsDoc(), loadedSettings)
         }
 
+        const loadedEvents = eventSnap.docs.map(d => ({ id: d.id, ...d.data() } as CalendarEvent))
+
         setTasks(loadedTasks)
         setCategories(loadedCats)
         setSettings(loadedSettings)
+        setCalendarEvents(loadedEvents)
       } catch {
         setTasks([])
         setCategories([...DEFAULT_CATEGORIES])
@@ -121,6 +128,24 @@ export function useTaskFlow(user: User) {
     return cat
   }, [user.uid])
 
+  // ─── Calendar Events CRUD ─────────────────────────────────────────────────
+  const createCalendarEvent = useCallback(async (payload: Omit<CalendarEvent, 'id'>) => {
+    const ref = await addDoc(eventsCol(), payload)
+    const event: CalendarEvent = { id: ref.id, ...payload }
+    setCalendarEvents(prev => [...prev, event])
+    return event
+  }, [user.uid])
+
+  const updateCalendarEvent = useCallback(async (id: string, payload: Partial<CalendarEvent>) => {
+    await updateDoc(eventDoc(id), payload as Record<string, unknown>)
+    setCalendarEvents(prev => prev.map(e => e.id === id ? { ...e, ...payload } : e))
+  }, [user.uid])
+
+  const deleteCalendarEvent = useCallback(async (id: string) => {
+    await deleteDoc(eventDoc(id))
+    setCalendarEvents(prev => prev.filter(e => e.id !== id))
+  }, [user.uid])
+
   // ─── Settings ─────────────────────────────────────────────────────────────
   const saveSettings = useCallback(async (patch: Partial<Settings>) => {
     const updated = { ...settings, ...patch }
@@ -129,9 +154,10 @@ export function useTaskFlow(user: User) {
   }, [settings, user.uid])
 
   return {
-    tasks, categories, settings, loading,
+    tasks, categories, settings, calendarEvents, loading,
     createTask, updateTask, deleteTask, reorderTasks, toggleComplete,
     createCategory, saveSettings,
+    createCalendarEvent, updateCalendarEvent, deleteCalendarEvent,
   }
 }
 

@@ -22,10 +22,24 @@ export default {
           medium: '#f59e0b',
           low: '#3b82f6',
         },
+        'color-1': 'hsl(var(--color-1))',
+        'color-2': 'hsl(var(--color-2))',
+        'color-3': 'hsl(var(--color-3))',
+        'color-4': 'hsl(var(--color-4))',
+        'color-5': 'hsl(var(--color-5))',
       },
       boxShadow: {
         card: '0 10px 15px -3px rgba(0, 0, 0, 0.4)',
         modal: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+      },
+      animation: {
+        rainbow: 'rainbow var(--speed, 2s) infinite linear',
+      },
+      keyframes: {
+        rainbow: {
+          '0%': { backgroundPosition: '0%' },
+          '100%': { backgroundPosition: '200%' },
+        },
       },
     },
   },

@@ -1,6 +1,7 @@
-import { useState } from 'react'
 import { Task } from '@/types'
-import { MONTHS } from '@/lib/utils'
+import { Calendar } from '@/components/ui/calendar'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 interface Props {
   tasks: Task[]
@@ -9,69 +10,71 @@ interface Props {
 }
 
 export default function CalendarWidget({ tasks, selectedDate, onDateSelect }: Props) {
-  const [calMonth, setCalMonth] = useState(new Date())
+  const selected = selectedDate ? parseISO(selectedDate) : undefined
 
-  const year     = calMonth.getFullYear()
-  const month    = calMonth.getMonth()
-  const first    = new Date(year, month, 1)
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const startPad = (first.getDay() + 6) % 7
-  const today    = new Date()
+  const handleSelect = (date: Date | undefined) => {
+    if (!date) {
+      onDateSelect(null)
+    } else {
+      // Ajustar a la zona horaria local para evitar problemas con la fecha
+      const dateStr = format(date, 'yyyy-MM-dd')
+      onDateSelect(dateStr === selectedDate ? null : dateStr)
+    }
+  }
 
-  const dayNames = ['L','M','X','J','V','S','D']
+  // Fechas que tienen al menos una tarea (pendiente)
+  const taskDates = Array.from(new Set(tasks.filter(t => !t.completed && t.dueDate).map(t => t.dueDate!)))
+
+  const modifiers = {
+    hasTask: (date: Date) => taskDates.includes(format(date, 'yyyy-MM-dd')),
+  }
+  const modifiersClassNames = {
+    hasTask: 'calendar-day-has-task',
+  }
 
   return (
-    <aside className="lg:w-[30%] border-t lg:border-t-0 lg:border-l border-border p-4 flex flex-col">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-medium text-sm">{MONTHS[month]} {year}</h3>
-        <div className="flex gap-1">
-          <button
-            onClick={() => setCalMonth(d => { const n = new Date(d); n.setMonth(n.getMonth()-1); return n })}
-            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-secondary hover:text-primary"
-            aria-label="Mes anterior"
-          >‹</button>
-          <button
-            onClick={() => setCalMonth(d => { const n = new Date(d); n.setMonth(n.getMonth()+1); return n })}
-            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-secondary hover:text-primary"
-            aria-label="Mes siguiente"
-          >›</button>
-        </div>
+    <aside className="lg:w-[30%] border-t lg:border-t-0 lg:border-l border-border p-4 flex flex-col items-center bg-surface-card/30 backdrop-blur-md calendar-widget">
+      <div className="w-full mb-4 px-2">
+        <h3 className="font-medium text-sm text-primary">Calendario</h3>
+        <p className="text-xs text-secondary">Filtra tus tareas por fecha</p>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-sm">
-        {dayNames.map(d => (
-          <span key={d} className="text-secondary text-xs py-1">{d}</span>
-        ))}
-        {Array.from({ length: startPad }).map((_, i) => (
-          <span key={`pad-${i}`} className="cal-day py-1.5" />
-        ))}
-        {Array.from({ length: daysInMonth }).map((_, i) => {
-          const d = i + 1
-          const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-          const dayTasks = tasks.filter(t => t.dueDate === dateStr && !t.completed)
-          const maxPri = dayTasks.some(t => t.priority === 'high') ? 'high'
-            : dayTasks.some(t => t.priority === 'medium') ? 'medium'
-            : dayTasks.length ? 'low' : ''
-          const isToday    = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d
-          const isSelected = selectedDate === dateStr
+      <Calendar
+        mode="single"
+        selected={selected}
+        onSelect={handleSelect}
+        locale={es}
+        modifiers={modifiers}
+        modifiersClassNames={modifiersClassNames}
+        className="rounded-xl border border-border bg-surface-card/50 shadow-modal p-3"
+      />
 
-          const cls = [
-            'cal-day py-1.5 rounded-lg cursor-pointer hover:bg-white/5 text-xs',
-            isToday    ? 'today'    : '',
-            isSelected ? 'selected' : '',
-            maxPri     ? `has-tasks priority-${maxPri}` : '',
-          ].filter(Boolean).join(' ')
+      {selectedDate && (
+        <button
+          onClick={() => onDateSelect(null)}
+          className="mt-4 text-xs text-accent hover:underline"
+        >
+          Ver todas las fechas
+        </button>
+      )}
 
-          return (
-            <span
-              key={d}
-              className={cls}
-              onClick={() => onDateSelect(selectedDate === dateStr ? null : dateStr)}
-            >
-              {d}
-            </span>
-          )
-        })}
+      <div className="mt-6 w-full px-2 space-y-3">
+        <div className="flex items-center gap-2 text-[10px] text-secondary uppercase tracking-wider font-semibold">
+          <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+          Próximas tareas
+        </div>
+        <div className="space-y-2">
+          {tasks
+            .filter(t => !t.completed && t.dueDate && t.dueDate >= format(new Date(), 'yyyy-MM-dd'))
+            .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1))
+            .slice(0, 3)
+            .map(t => (
+              <div key={t.id} className="text-xs flex justify-between items-center p-2 rounded-lg bg-white/5 border border-white/5">
+                <span className="truncate pr-2 text-primary">{t.title}</span>
+                <span className="text-[10px] text-secondary whitespace-nowrap">{t.dueDate}</span>
+              </div>
+            ))}
+        </div>
       </div>
     </aside>
   )

@@ -1,5 +1,7 @@
 import { View, Filter, SortOrder } from '@/types'
 import { formatFullDate } from '@/lib/utils'
+import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
+import { Plus } from 'lucide-react'
 
 interface Props {
   currentView: View
@@ -111,12 +113,12 @@ export default function Header({
             )}
           </button>
 
-          <button
+          <InteractiveHoverButton
+            text="Nueva tarea"
+            icon={<Plus size={16} />}
             onClick={onNewTask}
-            className="px-4 py-2 rounded-lg bg-accent hover:bg-indigo-500 text-white font-medium text-sm transition-colors shadow-sm"
-          >
-            + Nueva tarea
-          </button>
+            className="border-accent/60 bg-accent/10 text-primary text-sm [&_.absolute]:bg-accent"
+          />
         </div>
       </div>
     </header>

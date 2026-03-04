@@ -5,11 +5,13 @@ import { useTaskFlow } from '@/hooks/useTaskFlow'
 import { Task, View, Filter } from '@/types'
 import { todayStr, PRIORITY_ORDER } from '@/lib/utils'
 import LoginScreen from '@/components/LoginScreen'
+import { SparklesCore } from '@/components/ui/sparkles'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import TaskList from '@/components/TaskList'
 import TaskPanel from '@/components/TaskPanel'
 import CalendarWidget from '@/components/CalendarWidget'
+import WeeklyCalendar from '@/components/WeeklyCalendar'
 
 // ─── Loading spinner ───────────────────────────────────────────────────────────
 function LoadingOverlay() {
@@ -26,9 +28,10 @@ function LoadingOverlay() {
 // ─── Main app (authenticated) ─────────────────────────────────────────────────
 function TaskFlowApp({ user }: { user: User }) {
   const {
-    tasks, categories, settings, loading,
+    tasks, categories, settings, calendarEvents, loading,
     createTask, updateTask, deleteTask, reorderTasks,
     toggleComplete, createCategory, saveSettings,
+    createCalendarEvent, updateCalendarEvent, deleteCalendarEvent,
   } = useTaskFlow(user)
 
   const [currentView,      setCurrentView]      = useState<View>('hoy')
@@ -69,8 +72,9 @@ function TaskFlowApp({ user }: { user: User }) {
     let list = [...tasks]
 
     switch (currentView) {
-      case 'hoy':        list = list.filter(t => t.dueDate === today); break
-      case 'proximos':   list = list.filter(t => t.dueDate && t.dueDate >= today && t.dueDate <= weekEnd); break
+      case 'hoy':        list = list.filter(t => t.dueDate === today && !t.completed); break
+      case 'proximos':   list = list.filter(t => t.dueDate && t.dueDate >= today && t.dueDate <= weekEnd && !t.completed); break
+      case 'todas':      list = list.filter(t => !t.completed); break
       case 'completadas':list = list.filter(t => t.completed); break
     }
 
@@ -125,7 +129,24 @@ function TaskFlowApp({ user }: { user: User }) {
   if (loading) return <LoadingOverlay />
 
   return (
-    <div className="bg-surface text-primary font-sans antialiased min-h-screen flex text-[14px] leading-relaxed">
+    <div className="bg-surface text-primary font-sans antialiased min-h-screen flex text-[14px] leading-relaxed relative overflow-hidden">
+      {/* Sparkles de fondo — solo visible en el área principal */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <SparklesCore
+          id="main-sparkles"
+          background="transparent"
+          minSize={0.4}
+          maxSize={1.2}
+          particleDensity={35}
+          particleColor="#6366f1"
+          speed={0.6}
+          className="w-full h-full"
+        />
+      </div>
+
+      {/* Contenido principal sobre el shader */}
+      <div className="relative z-10 flex flex-1 min-h-screen min-w-0">
+
       {/* Sidebar overlay (mobile) */}
       {sidebarOpen && (
         <div
@@ -163,27 +184,40 @@ function TaskFlowApp({ user }: { user: User }) {
         />
 
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          <section className="flex-1 min-w-0 overflow-y-auto p-4 lg:w-[70%]">
-            <TaskList
-              tasks={filteredTasks}
-              categories={categories}
-              onToggle={toggleComplete}
-              onEdit={id => {
-                const t = tasks.find(x => x.id === id)
-                if (t) { setEditingTask(t); setPanelOpen(true) }
-              }}
-              onReorder={reorderTasks}
-            />
-          </section>
+          {currentView === 'calendario' ? (
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <WeeklyCalendar
+                events={calendarEvents}
+                onCreate={createCalendarEvent}
+                onUpdate={updateCalendarEvent}
+                onDelete={deleteCalendarEvent}
+              />
+            </div>
+          ) : (
+            <>
+              <section className="flex-1 min-w-0 overflow-y-auto p-4 lg:w-[70%]">
+                <TaskList
+                  tasks={filteredTasks}
+                  categories={categories}
+                  onToggle={toggleComplete}
+                  onEdit={id => {
+                    const t = tasks.find(x => x.id === id)
+                    if (t) { setEditingTask(t); setPanelOpen(true) }
+                  }}
+                  onReorder={reorderTasks}
+                />
+              </section>
 
-          <CalendarWidget
-            tasks={tasks}
-            selectedDate={currentCalDate}
-            onDateSelect={date => {
-              setCurrentCalDate(date)
-              if (date) setCurrentView('todas')
-            }}
-          />
+              <CalendarWidget
+                tasks={tasks}
+                selectedDate={currentCalDate}
+                onDateSelect={date => {
+                  setCurrentCalDate(date)
+                  if (date) setCurrentView('todas')
+                }}
+              />
+            </>
+          )}
         </div>
       </main>
 
@@ -195,6 +229,8 @@ function TaskFlowApp({ user }: { user: User }) {
         onSave={handleSaveTask}
         onDelete={deleteTask}
       />
+
+      </div>{/* fin contenido principal */}
     </div>
   )
 }
@@ -212,6 +248,10 @@ export default function App() {
   }, [])
 
   if (authLoading) return <LoadingOverlay />
-  if (!user)       return <LoginScreen />
-  return <TaskFlowApp user={user} />
+
+  return (
+    <div className="relative min-h-screen w-full overflow-hidden bg-surface">
+      {!user ? <LoginScreen /> : <TaskFlowApp user={user} />}
+    </div>
+  )
 }

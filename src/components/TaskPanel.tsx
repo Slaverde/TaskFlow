@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Task, Category, Subtask } from '@/types'
+import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
+import { Save, Check } from 'lucide-react'
 
 interface Props {
   isOpen: boolean
@@ -185,16 +187,16 @@ export default function TaskPanel({ isOpen, editingTask, categories, onClose, on
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button
+                  <InteractiveHoverButton
                     type="submit"
-                    className="flex-1 px-4 py-3 rounded-lg bg-accent hover:bg-indigo-500 text-white font-medium shadow-sm"
-                  >
-                    Guardar
-                  </button>
+                    text={editingTask ? 'Actualizar' : 'Guardar'}
+                    icon={editingTask ? <Check size={16} /> : <Save size={16} />}
+                    className="flex-1 w-full border-accent/60 bg-accent/10 text-primary [&_.absolute]:bg-accent"
+                  />
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 text-primary border border-border transition-colors"
+                    className="px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 text-primary border border-border transition-colors text-sm"
                   >
                     Cancelar
                   </button>
