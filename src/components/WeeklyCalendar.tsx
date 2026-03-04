@@ -206,7 +206,7 @@ function EventModal({ initialDate, initialStart, initialEnd, editingEvent, onSav
 // ─── Componente principal ─────────────────────────────────────────────────────
 interface Props {
   events: CalendarEvent[]
-  onCreate: (data: Omit<CalendarEvent, 'id'>) => Promise<void>
+  onCreate: (data: Omit<CalendarEvent, 'id'>) => Promise<CalendarEvent | void>
   onUpdate: (id: string, data: Partial<CalendarEvent>) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }
