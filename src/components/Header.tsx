@@ -26,18 +26,20 @@ const VIEW_TITLE: Record<View, string | (() => string)> = {
   completadas:'Completadas',
 }
 
+type FilterValue = NonNullable<Filter>
+
+const FILTER_ITEMS: { id: FilterValue; label: string }[] = [
+  { id: 'activas',   label: 'Activas'        },
+  { id: 'alta',      label: 'Alta prioridad' },
+  { id: 'con-fecha', label: 'Con fecha'      },
+]
+
 export default function Header({
   currentView, search, currentFilter, currentSort, darkMode,
   onSearchChange, onFilterChange, onSortChange, onDarkModeToggle, onNewTask, onMenuToggle,
 }: Props) {
   const title = VIEW_TITLE[currentView]
   const titleStr = typeof title === 'function' ? title() : title
-
-  const filters: { id: Filter; label: string }[] = [
-    { id: 'activas',   label: 'Activas'        },
-    { id: 'alta',      label: 'Alta prioridad' },
-    { id: 'con-fecha', label: 'Con fecha'      },
-  ]
 
   return (
     <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-xl border-b border-border px-4 py-3">
@@ -71,10 +73,10 @@ export default function Header({
           </div>
 
           {/* Filtros con estilo tubelight */}
-          <TubelightNavBar<Exclude<Filter, null>>
-            items={filters}
-            activeId={currentFilter}
-            onSelect={onFilterChange}
+          <TubelightNavBar<FilterValue>
+            items={FILTER_ITEMS}
+            activeId={currentFilter as FilterValue | null}
+            onSelect={f => onFilterChange(f as Filter)}
             className="flex-shrink-0"
           />
 
