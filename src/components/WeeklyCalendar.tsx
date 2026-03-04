@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Plus, X, Clock, Trash2 } from 'lucide-react'
+import { Plus, X, Clock, Trash2 } from 'lucide-react'
 import { CalendarEvent } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -212,27 +212,13 @@ interface Props {
 }
 
 export default function WeeklyCalendar({ events, onCreate, onUpdate, onDelete }: Props) {
-  const [weekStart,     setWeekStart]     = useState(() => getWeekStart(new Date()))
+  const weekStart                        = getWeekStart(new Date())
   const [modal,         setModal]         = useState<{ date: string; start: string; end: string } | null>(null)
   const [editingEvent,  setEditingEvent]  = useState<CalendarEvent | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const weekDays = getWeekDays(weekStart)
   const today    = toDateStr(new Date())
-
-  const prevWeek = () => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() - 7)
-    setWeekStart(d)
-  }
-
-  const nextWeek = () => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + 7)
-    setWeekStart(d)
-  }
-
-  const goToday = () => setWeekStart(getWeekStart(new Date()))
 
   // Clic en celda vacía → abrir modal de nuevo evento
   const handleCellClick = (date: string, hour: number) => {
@@ -284,17 +270,21 @@ export default function WeeklyCalendar({ events, onCreate, onUpdate, onDelete }:
         onClick={e => { e.stopPropagation(); setEditingEvent(event); setModal({ date: event.date, start: event.startTime, end: event.endTime }) }}
       >
         <p className="text-[11px] font-semibold truncate leading-tight">{event.title}</p>
-        {height > 32 && (
+        {height > 28 && (
           <p className="text-[10px] opacity-70 flex items-center gap-0.5 mt-0.5">
             <Clock size={9} />
             {event.startTime}–{event.endTime}
+          </p>
+        )}
+        {height > 56 && event.description && (
+          <p className="text-[10px] opacity-60 mt-0.5 line-clamp-2 leading-tight">
+            {event.description}
           </p>
         )}
       </div>
     )
   }
 
-  // Título del rango de la semana
   const rangeLabel = (() => {
     const end = weekDays[6]
     const sameMonth = weekStart.getMonth() === end.getMonth()
@@ -309,21 +299,7 @@ export default function WeeklyCalendar({ events, onCreate, onUpdate, onDelete }:
 
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0">
-        <div className="flex items-center gap-1">
-          <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-white/10 text-secondary hover:text-primary transition-colors">
-            <ChevronLeft size={18} />
-          </button>
-          <button onClick={nextWeek} className="p-1.5 rounded-lg hover:bg-white/10 text-secondary hover:text-primary transition-colors">
-            <ChevronRight size={18} />
-          </button>
-        </div>
         <h2 className="font-semibold text-primary text-sm flex-1">{rangeLabel}</h2>
-        <button
-          onClick={goToday}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-white/5 transition-colors text-secondary hover:text-primary"
-        >
-          Hoy
-        </button>
         <button
           onClick={() => { setEditingEvent(null); setModal({ date: today, start: '09:00', end: '10:00' }) }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent hover:bg-indigo-500 text-white text-xs font-medium transition-colors"
