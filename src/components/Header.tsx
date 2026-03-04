@@ -1,6 +1,7 @@
 import { View, Filter, SortOrder } from '@/types'
 import { formatFullDate } from '@/lib/utils'
 import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
+import { TubelightNavBar } from '@/components/ui/tubelight-navbar'
 import { Plus } from 'lucide-react'
 
 interface Props {
@@ -69,20 +70,13 @@ export default function Header({
             </svg>
           </div>
 
-          {/* Filter chips */}
-          <div className="flex gap-1 flex-wrap">
-            {filters.map(f => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => onFilterChange(currentFilter === f.id ? null : f.id)}
-                className={`filter-chip px-3 py-1.5 rounded-full text-xs bg-white/5 border transition-all
-                  ${currentFilter === f.id ? 'border-border text-primary' : 'border-transparent'}`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+          {/* Filtros con estilo tubelight */}
+          <TubelightNavBar<Filter>
+            items={filters}
+            activeId={currentFilter}
+            onSelect={onFilterChange}
+            className="flex-shrink-0"
+          />
 
           {/* Sort */}
           <select
