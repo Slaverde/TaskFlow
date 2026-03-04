@@ -1,0 +1,217 @@
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { onAuthStateChanged, User } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
+import { useTaskFlow } from '@/hooks/useTaskFlow'
+import { Task, View, Filter } from '@/types'
+import { todayStr, PRIORITY_ORDER } from '@/lib/utils'
+import LoginScreen from '@/components/LoginScreen'
+import Sidebar from '@/components/Sidebar'
+import Header from '@/components/Header'
+import TaskList from '@/components/TaskList'
+import TaskPanel from '@/components/TaskPanel'
+import CalendarWidget from '@/components/CalendarWidget'
+
+// ─── Loading spinner ───────────────────────────────────────────────────────────
+function LoadingOverlay() {
+  return (
+    <div className="fixed inset-0 bg-surface z-[200] flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-secondary text-sm">Cargando TaskFlow...</p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main app (authenticated) ─────────────────────────────────────────────────
+function TaskFlowApp({ user }: { user: User }) {
+  const {
+    tasks, categories, settings, loading,
+    createTask, updateTask, deleteTask, reorderTasks,
+    toggleComplete, createCategory, saveSettings,
+  } = useTaskFlow(user)
+
+  const [currentView,      setCurrentView]      = useState<View>('hoy')
+  const [currentFilter,    setCurrentFilter]    = useState<Filter>(null)
+  const [currentCatFilter, setCurrentCatFilter] = useState<string | null>(null)
+  const [currentCalDate,   setCurrentCalDate]   = useState<string | null>(null)
+  const [search,           setSearch]           = useState('')
+  const [panelOpen,        setPanelOpen]        = useState(false)
+  const [editingTask,      setEditingTask]       = useState<Task | null>(null)
+  const [sidebarOpen,      setSidebarOpen]      = useState(false)
+
+  // Apply dark mode to body
+  useEffect(() => {
+    document.body.classList.toggle('light-mode', !settings.darkMode)
+  }, [settings.darkMode])
+
+  // Keyboard shortcut: N = new task, Esc = close panel
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase()
+      const isInput = tag === 'input' || tag === 'textarea' || tag === 'select'
+      if (e.key === 'Escape' && panelOpen) { setPanelOpen(false); return }
+      if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !isInput) {
+        e.preventDefault()
+        setEditingTask(null)
+        setPanelOpen(true)
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [panelOpen])
+
+  // ─── Filtered + sorted tasks ────────────────────────────────────────────────
+  const filteredTasks = useMemo(() => {
+    const today   = todayStr()
+    const weekEnd = (() => { const d = new Date(); d.setDate(d.getDate()+7); return d.toISOString().slice(0,10) })()
+
+    let list = [...tasks]
+
+    switch (currentView) {
+      case 'hoy':        list = list.filter(t => t.dueDate === today); break
+      case 'proximos':   list = list.filter(t => t.dueDate && t.dueDate >= today && t.dueDate <= weekEnd); break
+      case 'completadas':list = list.filter(t => t.completed); break
+    }
+
+    if (currentCalDate)   list = list.filter(t => t.dueDate === currentCalDate)
+    if (currentCatFilter) list = list.filter(t => t.category === currentCatFilter)
+
+    if (currentFilter === 'activas')        list = list.filter(t => !t.completed)
+    else if (currentFilter === 'alta')      list = list.filter(t => t.priority === 'high')
+    else if (currentFilter === 'con-fecha') list = list.filter(t => !!t.dueDate)
+
+    const q = search.trim().toLowerCase()
+    if (q) list = list.filter(t => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q))
+
+    switch (settings.currentSort) {
+      case 'priority':
+        return list.sort((a, b) => {
+          const pa = PRIORITY_ORDER[a.priority] ?? 4
+          const pb = PRIORITY_ORDER[b.priority] ?? 4
+          return pa !== pb ? pa - pb : (a.dueDate||'9999') < (b.dueDate||'9999') ? -1 : 1
+        })
+      case 'date':
+        return list.sort((a, b) => {
+          const da = a.dueDate||'9999-12-31', db = b.dueDate||'9999-12-31'
+          return da < db ? -1 : da > db ? 1 : 0
+        })
+      case 'created':
+        return list.sort((a, b) => (b.createdAt||'') > (a.createdAt||'') ? 1 : -1)
+      default:
+        return list.sort((a, b) => (a.order??0) - (b.order??0))
+    }
+  }, [tasks, currentView, currentFilter, currentCatFilter, currentCalDate, search, settings.currentSort])
+
+  // ─── Handlers ───────────────────────────────────────────────────────────────
+  const handleSaveTask = useCallback(async (
+    payload: Omit<Task, 'id' | 'createdAt' | 'completed' | 'order'>,
+    id?: string
+  ) => {
+    if (id) {
+      const existing = tasks.find(t => t.id === id)
+      if (existing) await updateTask(id, { ...existing, ...payload })
+    } else {
+      await createTask(payload)
+    }
+  }, [tasks, createTask, updateTask])
+
+  const handleViewChange = (v: View) => {
+    setCurrentView(v)
+    setCurrentCalDate(null)
+    setCurrentCatFilter(null)
+  }
+
+  if (loading) return <LoadingOverlay />
+
+  return (
+    <div className="bg-surface text-primary font-sans antialiased min-h-screen flex text-[14px] leading-relaxed">
+      {/* Sidebar overlay (mobile) */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <Sidebar
+        currentView={currentView}
+        categories={categories}
+        tasks={tasks}
+        currentCatFilter={currentCatFilter}
+        isOpen={sidebarOpen}
+        user={user}
+        onViewChange={handleViewChange}
+        onCatFilter={id => { setCurrentCatFilter(id); setCurrentView('todas') }}
+        onCreateCategory={createCategory}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <main className="flex-1 flex flex-col min-h-screen min-w-0">
+        <Header
+          currentView={currentView}
+          search={search}
+          currentFilter={currentFilter}
+          currentSort={settings.currentSort}
+          darkMode={settings.darkMode}
+          onSearchChange={setSearch}
+          onFilterChange={setCurrentFilter}
+          onSortChange={s => saveSettings({ currentSort: s })}
+          onDarkModeToggle={() => saveSettings({ darkMode: !settings.darkMode })}
+          onNewTask={() => { setEditingTask(null); setPanelOpen(true) }}
+          onMenuToggle={() => setSidebarOpen(o => !o)}
+        />
+
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          <section className="flex-1 min-w-0 overflow-y-auto p-4 lg:w-[70%]">
+            <TaskList
+              tasks={filteredTasks}
+              categories={categories}
+              onToggle={toggleComplete}
+              onEdit={id => {
+                const t = tasks.find(x => x.id === id)
+                if (t) { setEditingTask(t); setPanelOpen(true) }
+              }}
+              onReorder={reorderTasks}
+            />
+          </section>
+
+          <CalendarWidget
+            tasks={tasks}
+            selectedDate={currentCalDate}
+            onDateSelect={date => {
+              setCurrentCalDate(date)
+              if (date) setCurrentView('todas')
+            }}
+          />
+        </div>
+      </main>
+
+      <TaskPanel
+        isOpen={panelOpen}
+        editingTask={editingTask}
+        categories={categories}
+        onClose={() => setPanelOpen(false)}
+        onSave={handleSaveTask}
+        onDelete={deleteTask}
+      />
+    </div>
+  )
+}
+
+// ─── Root App with auth ────────────────────────────────────────────────────────
+export default function App() {
+  const [user,        setUser]        = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, u => {
+      setUser(u)
+      setAuthLoading(false)
+    })
+  }, [])
+
+  if (authLoading) return <LoadingOverlay />
+  if (!user)       return <LoginScreen />
+  return <TaskFlowApp user={user} />
+}
