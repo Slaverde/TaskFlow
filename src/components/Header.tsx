@@ -71,7 +71,7 @@ export default function Header({
           </div>
 
           {/* Filtros con estilo tubelight */}
-          <TubelightNavBar<Filter>
+          <TubelightNavBar<Exclude<Filter, null>>
             items={filters}
             activeId={currentFilter}
             onSelect={onFilterChange}
