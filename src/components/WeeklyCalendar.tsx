@@ -309,89 +309,98 @@ export default function WeeklyCalendar({ events, onCreate, onUpdate, onDelete }:
         </button>
       </div>
 
-      {/* ── Cabecera de días ── */}
-      <div className="flex border-b border-border flex-shrink-0">
-        <div className="w-14 flex-shrink-0" /> {/* espacio para horas */}
-        {weekDays.map((day, i) => {
-          const str     = toDateStr(day)
-          const isToday = str === today
-          return (
-            <div key={i} className="flex-1 text-center py-2 min-w-0">
-              <p className={cn('text-[11px] uppercase tracking-wider', isToday ? 'text-accent font-semibold' : 'text-secondary')}>
-                {DAYS_ES[i]}
-              </p>
-              <div className={cn(
-                'mx-auto w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5',
-                isToday ? 'bg-accent text-white' : 'text-primary'
-              )}>
-                {day.getDate()}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* ── Grilla de horas ── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="flex">
-
-          {/* Columna de horas */}
-          <div className="w-14 flex-shrink-0">
-            {VISIBLE_HOURS.map(h => (
-              <div key={h} style={{ height: HOUR_HEIGHT }} className="flex items-start justify-end pr-2 pt-1">
-                <span className="text-[11px] text-secondary/60 select-none">
-                  {String(h).padStart(2, '0')}:00
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Columna por día */}
-          {weekDays.map((day, di) => {
-            const str       = toDateStr(day)
-            const isToday   = str === today
-            const dayEvents = events.filter(e => e.date === str)
-
-            return (
-              <div
-                key={di}
-                className={cn('flex-1 relative border-l border-border/50 min-w-0', isToday && 'bg-accent/[0.03]')}
-              >
-                {/* Líneas horizontales de hora */}
-                {VISIBLE_HOURS.map(h => (
-                  <div
-                    key={h}
-                    style={{ height: HOUR_HEIGHT }}
-                    className="border-t border-border/30 cursor-pointer hover:bg-white/[0.02] transition-colors"
-                    onClick={() => handleCellClick(str, h)}
-                  />
-                ))}
-
-                {/* Eventos del día */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="relative pointer-events-auto" style={{ height: VISIBLE_HOURS.length * HOUR_HEIGHT }}>
-                    {dayEvents.map(renderEvent)}
+      {/* ── Scroll horizontal en mobile (cabecera + grilla sincronizadas) ── */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="overflow-x-auto flex-shrink-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* ── Cabecera de días ── */}
+          <div className="flex border-b border-border" style={{ minWidth: 'calc(56px + 7 * 80px)' }}>
+            <div className="w-14 flex-shrink-0" />
+            {weekDays.map((day, i) => {
+              const str     = toDateStr(day)
+              const isToday = str === today
+              return (
+                <div key={i} className="w-20 flex-shrink-0 text-center py-2">
+                  <p className={cn('text-[11px] uppercase tracking-wider', isToday ? 'text-accent font-semibold' : 'text-secondary')}>
+                    {DAYS_ES[i]}
+                  </p>
+                  <div className={cn(
+                    'mx-auto w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5',
+                    isToday ? 'bg-accent text-white' : 'text-primary'
+                  )}>
+                    {day.getDate()}
                   </div>
                 </div>
+              )
+            })}
+          </div>
+        </div>
 
-                {/* Línea de hora actual */}
-                {isToday && (() => {
-                  const now = new Date()
-                  const mins = now.getHours() * 60 + now.getMinutes()
-                  const top = (mins - 6 * 60) * (HOUR_HEIGHT / 60)
-                  if (top < 0 || top > VISIBLE_HOURS.length * HOUR_HEIGHT) return null
-                  return (
-                    <div className="absolute left-0 right-0 z-10 pointer-events-none" style={{ top }}>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 rounded-full bg-accent flex-shrink-0 -ml-1" />
-                        <div className="flex-1 h-px bg-accent" />
-                      </div>
+        {/* ── Grilla de horas ── */}
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto overflow-x-auto"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="flex" style={{ minWidth: 'calc(56px + 7 * 80px)' }}>
+
+            {/* Columna de horas */}
+            <div className="w-14 flex-shrink-0">
+              {VISIBLE_HOURS.map(h => (
+                <div key={h} style={{ height: HOUR_HEIGHT }} className="flex items-start justify-end pr-2 pt-1">
+                  <span className="text-[11px] text-secondary/60 select-none">
+                    {String(h).padStart(2, '0')}:00
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Columna por día */}
+            {weekDays.map((day, di) => {
+              const str       = toDateStr(day)
+              const isToday   = str === today
+              const dayEvents = events.filter(e => e.date === str)
+
+              return (
+                <div
+                  key={di}
+                  className={cn('w-20 flex-shrink-0 relative border-l border-border/50', isToday && 'bg-accent/[0.03]')}
+                >
+                  {/* Líneas horizontales de hora */}
+                  {VISIBLE_HOURS.map(h => (
+                    <div
+                      key={h}
+                      style={{ height: HOUR_HEIGHT }}
+                      className="border-t border-border/30 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                      onClick={() => handleCellClick(str, h)}
+                    />
+                  ))}
+
+                  {/* Eventos del día */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="relative pointer-events-auto" style={{ height: VISIBLE_HOURS.length * HOUR_HEIGHT }}>
+                      {dayEvents.map(renderEvent)}
                     </div>
-                  )
-                })()}
-              </div>
-            )
-          })}
+                  </div>
+
+                  {/* Línea de hora actual */}
+                  {isToday && (() => {
+                    const now = new Date()
+                    const mins = now.getHours() * 60 + now.getMinutes()
+                    const top = (mins - 6 * 60) * (HOUR_HEIGHT / 60)
+                    if (top < 0 || top > VISIBLE_HOURS.length * HOUR_HEIGHT) return null
+                    return (
+                      <div className="absolute left-0 right-0 z-10 pointer-events-none" style={{ top }}>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full bg-accent flex-shrink-0 -ml-1" />
+                          <div className="flex-1 h-px bg-accent" />
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 

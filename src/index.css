@@ -126,13 +126,36 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 select option { background-color: #1c1c1c; color: #e5e5e5; }
 
 /* ─── Mobile touch targets ───────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .nav-link, .nav-cat, .filter-chip, button, input, select, textarea {
+@media (max-width: 1024px) {
+  /* Tamaño mínimo táctil para enlaces de navegación */
+  .nav-link, .nav-cat {
     min-height: 44px;
     display: flex;
     align-items: center;
   }
+  /* Inputs táctiles */
+  input, select, textarea {
+    min-height: 44px;
+  }
   .cal-day { min-width: 44px; min-height: 44px; }
+}
+
+/* ─── Safe area para iPhone con notch/home indicator ──────────────────────────── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* ─── Ocultar scrollbar horizontal en filtros mobile ─────────────────────────── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ─── Animación de entrada para la bottom nav ────────────────────────────────── */
+@media (max-width: 1024px) {
+  /* Asegurar que el contenido principal no quede detrás de la bottom nav */
+  main { padding-bottom: 0; }
 }
 
 /* ─── Light mode ─────────────────────────────────────────────────────────────── */

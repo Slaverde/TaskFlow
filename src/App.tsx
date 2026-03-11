@@ -12,6 +12,7 @@ import TaskList from '@/components/TaskList'
 import TaskPanel from '@/components/TaskPanel'
 import CalendarWidget from '@/components/CalendarWidget'
 import WeeklyCalendar from '@/components/WeeklyCalendar'
+import BottomNav from '@/components/BottomNav'
 
 // ─── Loading spinner ───────────────────────────────────────────────────────────
 function LoadingOverlay() {
@@ -183,7 +184,8 @@ function TaskFlowApp({ user }: { user: User }) {
           onMenuToggle={() => setSidebarOpen(o => !o)}
         />
 
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Padding inferior en mobile para la barra de navegación */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden pb-16 lg:pb-0">
           {currentView === 'calendario' ? (
             <div className="flex-1 min-w-0 overflow-hidden">
               <WeeklyCalendar
@@ -228,6 +230,15 @@ function TaskFlowApp({ user }: { user: User }) {
         onClose={() => setPanelOpen(false)}
         onSave={handleSaveTask}
         onDelete={deleteTask}
+      />
+
+      {/* Barra de navegación inferior — solo mobile */}
+      <BottomNav
+        currentView={currentView}
+        tasks={tasks}
+        onViewChange={handleViewChange}
+        onNewTask={() => { setEditingTask(null); setPanelOpen(true) }}
+        onMenuOpen={() => setSidebarOpen(o => !o)}
       />
 
       </div>{/* fin contenido principal */}

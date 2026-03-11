@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { View, Filter, SortOrder } from '@/types'
 import { formatFullDate } from '@/lib/utils'
 import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
 import { TubelightNavBar } from '@/components/ui/tubelight-navbar'
-import { Plus } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 
 interface Props {
   currentView: View
@@ -40,14 +41,19 @@ export default function Header({
 }: Props) {
   const title = VIEW_TITLE[currentView]
   const titleStr = typeof title === 'function' ? title() : title
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-xl border-b border-border px-4 py-3">
-      <div className="flex flex-wrap items-center gap-3">
+    <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-xl border-b border-border">
+
+      {/* ── Fila principal ── */}
+      <div className="flex items-center gap-2 px-4 py-3">
+
+        {/* Hamburguesa solo en desktop cuando no hay bottom nav */}
         <button
           id="menu-toggle"
           onClick={onMenuToggle}
-          className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-white/10 transition-colors"
+          className="hidden p-2 -ml-2 rounded-lg hover:bg-white/10 transition-colors"
           aria-label="Abrir menú"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,9 +61,40 @@ export default function Header({
           </svg>
         </button>
 
-        <h2 className="text-xl font-semibold flex-1">{titleStr}</h2>
+        {/* Título */}
+        <h2 className="text-base lg:text-xl font-semibold flex-1 truncate">{titleStr}</h2>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* ── Controles MOBILE (se ocultan en lg) ── */}
+        <div className="flex items-center gap-1.5 lg:hidden">
+          {/* Ícono búsqueda */}
+          <button
+            onClick={() => { setMobileSearchOpen(o => !o); if (mobileSearchOpen) onSearchChange('') }}
+            className={`p-2 rounded-lg transition-colors ${mobileSearchOpen ? 'bg-accent/20 text-accent' : 'hover:bg-white/10'}`}
+            aria-label="Buscar"
+          >
+            {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
+          </button>
+
+          {/* Modo oscuro */}
+          <button
+            onClick={onDarkModeToggle}
+            title="Alternar modo oscuro/claro"
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            {darkMode ? (
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+              </svg>
+            ) : (
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+              </svg>
+            )}
+          </button>
+        </div>
+
+        {/* ── Controles DESKTOP (ocultos en mobile) ── */}
+        <div className="hidden lg:flex items-center gap-2 flex-wrap">
           {/* Search */}
           <div className="relative">
             <input
@@ -65,14 +102,13 @@ export default function Header({
               value={search}
               onChange={e => onSearchChange(e.target.value)}
               placeholder="Buscar..."
-              className="w-36 sm:w-56 px-4 py-2 rounded-lg bg-surface-card border border-border text-sm placeholder-secondary focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 shadow-sm"
+              className="w-56 px-4 py-2 rounded-lg bg-surface-card border border-border text-sm placeholder-secondary focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 shadow-sm"
             />
             <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
 
-          {/* Filtros con estilo tubelight */}
           <TubelightNavBar<FilterValue>
             items={FILTER_ITEMS}
             activeId={currentFilter as FilterValue | null}
@@ -80,7 +116,6 @@ export default function Header({
             className="flex-shrink-0"
           />
 
-          {/* Sort */}
           <select
             value={currentSort}
             onChange={e => onSortChange(e.target.value as SortOrder)}
@@ -92,7 +127,6 @@ export default function Header({
             <option value="created">Más reciente</option>
           </select>
 
-          {/* Dark mode */}
           <button
             onClick={onDarkModeToggle}
             title="Alternar modo oscuro/claro"
@@ -117,6 +151,54 @@ export default function Header({
           />
         </div>
       </div>
+
+      {/* ── Barra de búsqueda mobile expandible ── */}
+      {mobileSearchOpen && (
+        <div className="lg:hidden px-4 pb-3">
+          <div className="relative">
+            <input
+              autoFocus
+              type="search"
+              value={search}
+              onChange={e => onSearchChange(e.target.value)}
+              placeholder="Buscar tareas..."
+              className="w-full px-4 py-2.5 rounded-xl bg-surface-card border border-border text-sm placeholder-secondary focus:outline-none focus:ring-2 focus:ring-accent/50"
+            />
+            <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* ── Filtros mobile (debajo del header, solo en vistas de tareas) ── */}
+      {currentView !== 'calendario' && (
+        <div className="lg:hidden flex items-center gap-2 px-4 pb-2 overflow-x-auto scrollbar-hide">
+          <select
+            value={currentSort}
+            onChange={e => onSortChange(e.target.value as SortOrder)}
+            className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-surface-card border border-border text-xs text-secondary focus:outline-none"
+          >
+            <option value="manual">Manual</option>
+            <option value="priority">Prioridad</option>
+            <option value="date">Fecha</option>
+            <option value="created">Reciente</option>
+          </select>
+
+          {FILTER_ITEMS.map(f => (
+            <button
+              key={f.id}
+              onClick={() => onFilterChange(currentFilter === f.id ? null : f.id)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors
+                ${currentFilter === f.id
+                  ? 'bg-accent/20 border-accent/50 text-accent'
+                  : 'bg-surface-card border-border text-secondary hover:text-primary'}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
     </header>
   )
 }

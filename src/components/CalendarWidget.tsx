@@ -33,7 +33,7 @@ export default function CalendarWidget({ tasks, selectedDate, onDateSelect }: Pr
   }
 
   return (
-    <aside className="lg:w-[30%] border-t lg:border-t-0 lg:border-l border-border p-4 flex flex-col items-center bg-surface-card/30 backdrop-blur-md calendar-widget">
+    <aside className="hidden lg:flex lg:w-[30%] border-t lg:border-t-0 lg:border-l border-border p-4 flex-col items-center bg-surface-card/30 backdrop-blur-md calendar-widget">
       <div className="w-full mb-4 px-2">
         <h3 className="font-medium text-sm text-primary">Calendario</h3>
         <p className="text-xs text-secondary">Filtra tus tareas por fecha</p>
