@@ -1,5 +1,5 @@
-const CACHE = 'taskflow-v2';
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon.svg'];
+const CACHE = 'taskflow-v3';
+const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
