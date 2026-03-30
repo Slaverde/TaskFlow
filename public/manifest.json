@@ -10,15 +10,9 @@
   "icons": [
     {
       "src": "icon.png",
-      "sizes": "1024x1016",
+      "sizes": "any",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon.png",
-      "sizes": "1024x1016",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
   "categories": ["productivity", "utilities"],
