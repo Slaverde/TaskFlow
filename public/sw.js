@@ -1,4 +1,4 @@
-const CACHE = 'taskflow-v3';
+const CACHE = 'taskflow-v4';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon.png'];
 
 self.addEventListener('install', e => {
@@ -21,10 +21,9 @@ self.addEventListener('fetch', e => {
   const url = e.request.url;
   if (!url.startsWith('http')) return;
   if (
-    url.includes('firebaseapp.com') ||
+    url.includes('supabase.co') ||
     url.includes('googleapis.com') ||
-    url.includes('gstatic.com') ||
-    url.includes('identitytoolkit')
+    url.includes('gstatic.com')
   ) return;
 
   e.respondWith(

@@ -1,17 +1,59 @@
 import { useState, useEffect, useCallback } from 'react'
-import { User } from 'firebase/auth'
-import {
-  collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
-  setDoc, getDoc, writeBatch, query, orderBy,
-} from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { User } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 import { Task, Category, Settings, CalendarEvent } from '@/types'
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'universidad', name: 'Universidad', color: 'blue'    },
-  { id: 'personal',    name: 'Personal',    color: 'emerald' },
-  { id: 'trabajo',     name: 'Trabajo',     color: 'amber'   },
+const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
+  { name: 'Universidad', color: 'blue'    },
+  { name: 'Personal',    color: 'emerald' },
+  { name: 'Trabajo',     color: 'amber'   },
 ]
+
+type TaskRow = {
+  id: string
+  title: string
+  description: string
+  due_date: string | null
+  priority: Task['priority']
+  category: string | null
+  completed: boolean
+  order: number
+  created_at: string
+  subtasks: Task['subtasks']
+}
+
+const fromTaskRow = (r: TaskRow): Task => ({
+  id: r.id,
+  title: r.title,
+  description: r.description,
+  dueDate: r.due_date,
+  priority: r.priority,
+  category: r.category,
+  completed: r.completed,
+  order: r.order,
+  createdAt: r.created_at,
+  subtasks: r.subtasks ?? [],
+})
+
+type EventRow = {
+  id: string
+  title: string
+  date: string
+  start_time: string
+  end_time: string
+  color: string
+  description: string | null
+}
+
+const fromEventRow = (r: EventRow): CalendarEvent => ({
+  id: r.id,
+  title: r.title,
+  date: r.date,
+  startTime: r.start_time,
+  endTime: r.end_time,
+  color: r.color,
+  description: r.description ?? undefined,
+})
 
 export function useTaskFlow(user: User) {
   const [tasks,          setTasks]          = useState<Task[]>([])
@@ -20,49 +62,55 @@ export function useTaskFlow(user: User) {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
   const [loading,        setLoading]        = useState(true)
 
-  // ─── Path helpers ─────────────────────────────────────────────────────────
-  const tasksCol      = () => collection(db, 'users', user.uid, 'tasks')
-  const catsCol       = () => collection(db, 'users', user.uid, 'categories')
-  const settingsDoc   = () => doc(db, 'users', user.uid, 'settings', 'app')
-  const taskDoc       = (id: string) => doc(db, 'users', user.uid, 'tasks', id)
-  const eventsCol     = () => collection(db, 'users', user.uid, 'calendarEvents')
-  const eventDoc      = (id: string) => doc(db, 'users', user.uid, 'calendarEvents', id)
-
   // ─── Load data ────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
       try {
-        const [taskSnap, catSnap, settingSnap, eventSnap] = await Promise.all([
-          getDocs(query(tasksCol(), orderBy('order'))),
-          getDocs(catsCol()),
-          getDoc(settingsDoc()),
-          getDocs(eventsCol()),
+        const [taskRes, catRes, settingsRes, eventRes] = await Promise.all([
+          supabase.from('tasks').select('*').eq('user_id', user.id).order('order'),
+          supabase.from('categories').select('*').eq('user_id', user.id),
+          supabase.from('settings').select('*').eq('user_id', user.id).maybeSingle(),
+          supabase.from('calendar_events').select('*').eq('user_id', user.id),
         ])
 
         if (cancelled) return
+        if (taskRes.error) throw taskRes.error
+        if (catRes.error) throw catRes.error
+        if (eventRes.error) throw eventRes.error
 
-        const loadedTasks = taskSnap.docs.map(d => ({ id: d.id, ...d.data() } as Task))
-        let loadedCats    = catSnap.docs.map(d => ({ id: d.id, ...d.data() } as Category))
+        const loadedTasks = (taskRes.data as TaskRow[]).map(fromTaskRow)
+        let loadedCats = (catRes.data as (Category & { user_id: string })[]).map(
+          ({ id, name, color }) => ({ id, name, color })
+        )
 
         if (loadedCats.length === 0) {
-          const batch = writeBatch(db)
-          DEFAULT_CATEGORIES.forEach(cat => {
-            batch.set(doc(db, 'users', user.uid, 'categories', cat.id), { name: cat.name, color: cat.color })
-          })
-          await batch.commit()
-          loadedCats = [...DEFAULT_CATEGORIES]
+          const { data: inserted, error } = await supabase
+            .from('categories')
+            .insert(DEFAULT_CATEGORIES.map(c => ({ ...c, user_id: user.id })))
+            .select()
+          if (error) throw error
+          loadedCats = (inserted as (Category & { user_id: string })[]).map(
+            ({ id, name, color }) => ({ id, name, color })
+          )
         }
 
         let loadedSettings: Settings = { darkMode: true, currentSort: 'manual' }
-        if (settingSnap.exists()) {
-          loadedSettings = settingSnap.data() as Settings
+        if (settingsRes.data) {
+          loadedSettings = {
+            darkMode: settingsRes.data.dark_mode,
+            currentSort: settingsRes.data.current_sort,
+          }
         } else {
-          await setDoc(settingsDoc(), loadedSettings)
+          await supabase.from('settings').insert({
+            user_id: user.id,
+            dark_mode: loadedSettings.darkMode,
+            current_sort: loadedSettings.currentSort,
+          })
         }
 
-        const loadedEvents = eventSnap.docs.map(d => ({ id: d.id, ...d.data() } as CalendarEvent))
+        const loadedEvents = (eventRes.data as EventRow[]).map(fromEventRow)
 
         setTasks(loadedTasks)
         setCategories(loadedCats)
@@ -70,88 +118,127 @@ export function useTaskFlow(user: User) {
         setCalendarEvents(loadedEvents)
       } catch {
         setTasks([])
-        setCategories([...DEFAULT_CATEGORIES])
+        setCategories(DEFAULT_CATEGORIES.map((c, i) => ({ id: String(i), ...c })))
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
     load()
     return () => { cancelled = true }
-  }, [user.uid])
+  }, [user.id])
 
   // ─── Tasks CRUD ───────────────────────────────────────────────────────────
   const createTask = useCallback(async (payload: Omit<Task, 'id' | 'createdAt' | 'completed' | 'order'>) => {
-    const newTask = {
-      ...payload,
+    const { data, error } = await supabase.from('tasks').insert({
+      user_id: user.id,
+      title: payload.title,
+      description: payload.description,
+      due_date: payload.dueDate,
+      priority: payload.priority,
+      category: payload.category,
+      subtasks: payload.subtasks,
       completed: false,
       order: tasks.length,
-      createdAt: new Date().toISOString(),
-    }
-    const ref = await addDoc(tasksCol(), newTask)
-    setTasks(prev => [...prev, { id: ref.id, ...newTask }])
-  }, [tasks.length, user.uid])
+    }).select().single()
+    if (error) throw error
+    setTasks(prev => [...prev, fromTaskRow(data as TaskRow)])
+  }, [tasks.length, user.id])
 
   const updateTask = useCallback(async (id: string, payload: Partial<Task>) => {
-    await updateDoc(taskDoc(id), payload as Record<string, unknown>)
+    const patch: Record<string, unknown> = {}
+    if (payload.title !== undefined)       patch.title = payload.title
+    if (payload.description !== undefined) patch.description = payload.description
+    if (payload.dueDate !== undefined)     patch.due_date = payload.dueDate
+    if (payload.priority !== undefined)    patch.priority = payload.priority
+    if (payload.category !== undefined)    patch.category = payload.category
+    if (payload.completed !== undefined)   patch.completed = payload.completed
+    if (payload.order !== undefined)       patch.order = payload.order
+    if (payload.subtasks !== undefined)    patch.subtasks = payload.subtasks
+
+    const { error } = await supabase.from('tasks').update(patch).eq('id', id)
+    if (error) throw error
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...payload } : t))
-  }, [user.uid])
+  }, [])
 
   const deleteTask = useCallback(async (id: string) => {
-    await deleteDoc(taskDoc(id))
+    const { error } = await supabase.from('tasks').delete().eq('id', id)
+    if (error) throw error
     setTasks(prev => prev.filter(t => t.id !== id))
-  }, [user.uid])
+  }, [])
 
   const reorderTasks = useCallback(async (reordered: Task[]) => {
     setTasks(reordered)
-    const batch = writeBatch(db)
-    reordered.forEach((t, i) => batch.update(taskDoc(t.id), { order: i }))
-    await batch.commit()
-  }, [user.uid])
+    await Promise.all(
+      reordered.map((t, i) => supabase.from('tasks').update({ order: i }).eq('id', t.id))
+    )
+  }, [])
 
   const toggleComplete = useCallback(async (id: string) => {
     const task = tasks.find(t => t.id === id)
     if (!task) return
     const completed = !task.completed
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed } : t))
-    try {
-      await updateDoc(taskDoc(id), { completed })
-    } catch {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !completed } : t))
-    }
-  }, [tasks, user.uid])
+    const { error } = await supabase.from('tasks').update({ completed }).eq('id', id)
+    if (error) setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !completed } : t))
+  }, [tasks])
 
   // ─── Categories CRUD ──────────────────────────────────────────────────────
   const createCategory = useCallback(async (name: string, color: string) => {
-    const ref = await addDoc(catsCol(), { name, color })
-    const cat: Category = { id: ref.id, name, color }
+    const { data, error } = await supabase.from('categories')
+      .insert({ user_id: user.id, name, color }).select().single()
+    if (error) throw error
+    const cat: Category = { id: data.id, name, color }
     setCategories(prev => [...prev, cat])
     return cat
-  }, [user.uid])
+  }, [user.id])
 
   // ─── Calendar Events CRUD ─────────────────────────────────────────────────
   const createCalendarEvent = useCallback(async (payload: Omit<CalendarEvent, 'id'>) => {
-    const ref = await addDoc(eventsCol(), payload)
-    const event: CalendarEvent = { id: ref.id, ...payload }
+    const { data, error } = await supabase.from('calendar_events').insert({
+      user_id: user.id,
+      title: payload.title,
+      date: payload.date,
+      start_time: payload.startTime,
+      end_time: payload.endTime,
+      color: payload.color,
+      description: payload.description ?? null,
+    }).select().single()
+    if (error) throw error
+    const event = fromEventRow(data as EventRow)
     setCalendarEvents(prev => [...prev, event])
     return event
-  }, [user.uid])
+  }, [user.id])
 
   const updateCalendarEvent = useCallback(async (id: string, payload: Partial<CalendarEvent>) => {
-    await updateDoc(eventDoc(id), payload as Record<string, unknown>)
+    const patch: Record<string, unknown> = {}
+    if (payload.title !== undefined)       patch.title = payload.title
+    if (payload.date !== undefined)        patch.date = payload.date
+    if (payload.startTime !== undefined)   patch.start_time = payload.startTime
+    if (payload.endTime !== undefined)     patch.end_time = payload.endTime
+    if (payload.color !== undefined)       patch.color = payload.color
+    if (payload.description !== undefined) patch.description = payload.description
+
+    const { error } = await supabase.from('calendar_events').update(patch).eq('id', id)
+    if (error) throw error
     setCalendarEvents(prev => prev.map(e => e.id === id ? { ...e, ...payload } : e))
-  }, [user.uid])
+  }, [])
 
   const deleteCalendarEvent = useCallback(async (id: string) => {
-    await deleteDoc(eventDoc(id))
+    const { error } = await supabase.from('calendar_events').delete().eq('id', id)
+    if (error) throw error
     setCalendarEvents(prev => prev.filter(e => e.id !== id))
-  }, [user.uid])
+  }, [])
 
   // ─── Settings ─────────────────────────────────────────────────────────────
   const saveSettings = useCallback(async (patch: Partial<Settings>) => {
     const updated = { ...settings, ...patch }
     setSettings(updated)
-    await setDoc(settingsDoc(), updated, { merge: true })
-  }, [settings, user.uid])
+    await supabase.from('settings').upsert({
+      user_id: user.id,
+      dark_mode: updated.darkMode,
+      current_sort: updated.currentSort,
+    })
+  }, [settings, user.id])
 
   return {
     tasks, categories, settings, calendarEvents, loading,

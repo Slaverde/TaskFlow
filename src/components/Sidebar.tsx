@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import { signOut } from 'firebase/auth'
-import { User } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { User } from '@supabase/supabase-js'
 import { Task, Category, View } from '@/types'
 import { CAT_DOT, AVAILABLE_COLORS, todayStr } from '@/lib/utils'
 
@@ -16,11 +14,12 @@ interface Props {
   onCatFilter: (id: string | null) => void
   onCreateCategory: (name: string, color: string) => Promise<unknown>
   onClose: () => void
+  onSignOut: () => void
 }
 
 export default function Sidebar({
   currentView, categories, tasks, currentCatFilter,
-  isOpen, user, onViewChange, onCatFilter, onCreateCategory, onClose,
+  isOpen, user, onViewChange, onCatFilter, onCreateCategory, onClose, onSignOut,
 }: Props) {
   const [showCatForm,   setShowCatForm]   = useState(false)
   const [catName,       setCatName]       = useState('')
@@ -153,14 +152,11 @@ export default function Sidebar({
 
       {/* User section */}
       <div className="p-3 border-t border-border flex items-center gap-2">
-        {user.photoURL && (
-          <img src={user.photoURL} alt="Avatar" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-        )}
         <span className="flex-1 text-xs text-secondary truncate">
-          {user.displayName || user.email}
+          {user.email}
         </span>
         <button
-          onClick={() => signOut(auth)}
+          onClick={onSignOut}
           title="Cerrar sesión"
           className="p-1.5 rounded-lg hover:bg-white/10 text-secondary hover:text-primary transition-colors flex-shrink-0"
         >

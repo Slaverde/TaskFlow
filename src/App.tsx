@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { onAuthStateChanged, User } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { User } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 import { useTaskFlow } from '@/hooks/useTaskFlow'
 import { Task, View, Filter } from '@/types'
 import { todayStr, PRIORITY_ORDER } from '@/lib/utils'
-import LoginScreen from '@/components/LoginScreen'
 import { SparklesCore } from '@/components/ui/sparkles'
+import LoginScreen from '@/components/LoginScreen'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import TaskList from '@/components/TaskList'
@@ -167,6 +167,7 @@ function TaskFlowApp({ user }: { user: User }) {
         onCatFilter={id => { setCurrentCatFilter(id); setCurrentView('todas') }}
         onCreateCategory={createCategory}
         onClose={() => setSidebarOpen(false)}
+        onSignOut={() => supabase.auth.signOut()}
       />
 
       <main className="flex-1 flex flex-col min-h-screen min-w-0">
@@ -252,17 +253,24 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
-    return onAuthStateChanged(auth, u => {
-      setUser(u)
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null)
       setAuthLoading(false)
     })
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      setAuthLoading(false)
+    })
+
+    return () => subscription.subscription.unsubscribe()
   }, [])
 
   if (authLoading) return <LoadingOverlay />
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-surface">
-      {!user ? <LoginScreen /> : <TaskFlowApp user={user} />}
+      {user ? <TaskFlowApp user={user} /> : <LoginScreen />}
     </div>
   )
 }
